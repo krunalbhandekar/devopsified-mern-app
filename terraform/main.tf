@@ -12,7 +12,7 @@ module "vpc" {
   availability_zones   = var.availability_zones
 }
 
-module "eks_cluster" {
+module "eks" {
   source = "./eks"
 
   aws_region      = var.region
