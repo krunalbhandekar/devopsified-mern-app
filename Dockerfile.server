@@ -1,0 +1,16 @@
+# Stage 1: Install dependencies with a small base
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+COPY server/package*.json ./
+
+RUN npm ci --omit=dev
+
+COPY server/ .
+
+# Expose app port
+EXPOSE 3000
+
+# Start the server
+CMD ["node", "src/server.js"]
