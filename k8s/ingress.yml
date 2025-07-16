@@ -10,13 +10,6 @@ spec:
   rules:
     - http:
         paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: client
-                port:
-                  number: 80
           - path: /api(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
@@ -24,3 +17,10 @@ spec:
                 name: server
                 port:
                   number: 3000
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: client
+                port:
+                  number: 80
