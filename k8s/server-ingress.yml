@@ -1,10 +1,10 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: mern-ingress
+  name: server-ingress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
@@ -17,10 +17,3 @@ spec:
                 name: server
                 port:
                   number: 3000
-          - path: /(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: client
-                port:
-                  number: 80
