@@ -5,9 +5,17 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80, "HTTPS": 443}]'
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
     cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
+  ingressClassName: alb
+  tls:
+    - hosts:
+        - todo.krunal.bar
+        - server.krunal.bar
+      secretName: mern-tls
   rules:
     - host: todo.krunal.bar
       http:
@@ -29,8 +37,3 @@ spec:
                 name: server
                 port:
                   number: 3000
-  tls:
-    - hosts:
-        - todo.krunal.bar
-        - server.krunal.bar
-      secretName: mern-tls
