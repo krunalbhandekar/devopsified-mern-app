@@ -5,7 +5,7 @@ import axios from "axios";
 // import "./App.css";
 
 function App() {
-  const BASE_URL = `${import.meta.env.VITE_API_URL}/api/todo`;
+  const BASE_URL = "/api/todo";
   const [todos, setTodos] = useState([]);
   const [form] = Form.useForm();
   const message = useMessageApi();
