@@ -19,9 +19,9 @@ pipeline {
                 script {
                     try {
                         git branch: 'main', url: "${env.GIT_REPO}"
-                        echo "✅ Successfully checked out repository"
+                        echo "Successfully checked out repository"
                     } catch (Exception e) {
-                        error "❌ Failed to checkout repository: ${e.getMessage()}"
+                        error "Failed to checkout repository: ${e.getMessage()}"
                     }
                 }
             }
@@ -39,18 +39,18 @@ pipeline {
                             
                             # Check if Dockerfiles exist
                             if [ ! -f "Dockerfile.client" ]; then
-                                echo "❌ Dockerfile.client not found"
+                                echo "Dockerfile.client not found"
                                 exit 1
                             fi
                             if [ ! -f "Dockerfile.server" ]; then
-                                echo "❌ Dockerfile.server not found"
+                                echo "Dockerfile.server not found"
                                 exit 1
                             fi
                             
-                            echo "✅ All prerequisites validated"
+                            echo "All prerequisites validated"
                         '''
                     } catch (Exception e) {
-                        error "❌ Prerequisites validation failed: ${e.getMessage()}"
+                        error "Prerequisites validation failed: ${e.getMessage()}"
                     }
                 }
             }
@@ -63,43 +63,42 @@ pipeline {
                         try {
                             sh '''
                                 # Create .kube directory with proper permissions
-                                echo "📁 Creating .kube directory..."
+                                echo "Creating .kube directory..."
                                 mkdir -p /var/lib/jenkins/.kube
                                 chmod 700 /var/lib/jenkins/.kube
                                 
                                 # Verify AWS credentials
-                                echo "🔍 Verifying AWS credentials..."
+                                echo "Verifying AWS credentials..."
                                 aws sts get-caller-identity
                                 
                                 # Check if AWS CLI is configured properly
-                                echo "🔧 Checking AWS configuration..."
+                                echo "Checking AWS configuration..."
                                 aws configure list
                                 
                                 # Verify EKS cluster exists
-                                echo "🔍 Checking if EKS cluster exists..."
+                                echo "Checking if EKS cluster exists..."
                                 aws eks describe-cluster --region ${AWS_REGION} --name ${CLUSTER_NAME}
                                 
                                 # Update kubeconfig with verbose output
-                                echo "🔧 Updating kubeconfig..."
+                                echo "Updating kubeconfig..."
                                 aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME} --kubeconfig ${KUBECONFIG} --verbose
                                 
                                 # Set proper permissions
                                 chmod 600 ${KUBECONFIG}
                                 
                                 # Verify kubeconfig was created
-                                echo "📄 Checking kubeconfig file..."
+                                echo "Checking kubeconfig file..."
                                 ls -la ${KUBECONFIG}
                                 
                                 # Test kubectl connection
-                                echo "🔍 Testing kubectl connection..."
+                                echo "Testing kubectl connection..."
                                 kubectl cluster-info --request-timeout=30s
                                 
-                                echo "✅ kubeconfig updated successfully"
+                                echo "kubeconfig updated successfully"
                             '''
                         } catch (Exception e) {
-                            // Enhanced error handling with debugging info
                             sh '''
-                                echo "❌ Debugging kubeconfig update failure..."
+                                echo "Debugging kubeconfig update failure..."
                                 echo "Current user: $(whoami)"
                                 echo "HOME directory: $HOME"
                                 echo "AWS CLI version: $(aws --version)"
@@ -110,25 +109,25 @@ pipeline {
                                 
                                 # Check if .kube directory exists
                                 if [ -d "/var/lib/jenkins/.kube" ]; then
-                                    echo "✅ .kube directory exists"
+                                    echo ".kube directory exists"
                                     ls -la /var/lib/jenkins/.kube/ || echo "Directory is empty"
                                 else
-                                    echo "❌ .kube directory does not exist"
+                                    echo ".kube directory does not exist"
                                 fi
                                 
                                 # Check AWS credentials
-                                echo "🔍 AWS credential check:"
-                                aws sts get-caller-identity || echo "❌ AWS credentials not configured"
+                                echo "AWS credential check:"
+                                aws sts get-caller-identity || echo "AWS credentials not configured"
                                 
                                 # List available clusters
-                                echo "🔍 Available EKS clusters:"
-                                aws eks list-clusters --region ${AWS_REGION} || echo "❌ Cannot list clusters"
+                                echo "Available EKS clusters:"
+                                aws eks list-clusters --region ${AWS_REGION} || echo "Cannot list clusters"
                                 
                                 # Check if cluster exists
-                                echo "🔍 Checking specific cluster:"
-                                aws eks describe-cluster --region ${AWS_REGION} --name ${CLUSTER_NAME} || echo "❌ Cluster not found or no access"
+                                echo "Checking specific cluster:"
+                                aws eks describe-cluster --region ${AWS_REGION} --name ${CLUSTER_NAME} || echo "Cluster not found or no access"
                             '''
-                            error "❌ Failed to update kubeconfig: ${e.getMessage()}"
+                            error "Failed to update kubeconfig: ${e.getMessage()}"
                         }
                     }
                 }
@@ -141,13 +140,13 @@ pipeline {
                     try {
                         withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                             sh '''
-                                echo "🔐 Logging into Docker Hub..."
+                                echo "Logging into Docker Hub..."
                                 echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                                echo "✅ Docker login successful"
+                                echo "Docker login successful"
                             '''
                         }
                     } catch (Exception e) {
-                        error "❌ Docker login failed: ${e.getMessage()}"
+                        error "Docker login failed: ${e.getMessage()}"
                     }
                 }
             }
@@ -161,19 +160,19 @@ pipeline {
                         script {
                             try {
                                 sh '''
-                                    echo "🏗️ Building client image..."
+                                    echo "Building client image..."
                                     export DOCKER_BUILDKIT=0
                                     
                                     # Build with build number tag
                                     docker build -t ${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER} -f Dockerfile.client .
                                     
-                                    echo "📤 Pushing client image..."
+                                    echo "Pushing client image..."
                                     docker push ${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER}
                                     
-                                    echo "✅ Client image built and pushed successfully"
+                                    echo "Client image built and pushed successfully"
                                 '''
                             } catch (Exception e) {
-                                error "❌ Failed to build/push client image: ${e.getMessage()}"
+                                error "Failed to build/push client image: ${e.getMessage()}"
                             }
                         }
                     }
@@ -184,19 +183,19 @@ pipeline {
                         script {
                             try {
                                 sh '''
-                                    echo "🏗️ Building server image..."
+                                    echo "Building server image..."
                                     export DOCKER_BUILDKIT=0
                                     
                                     # Build with build number tag
                                     docker build -t ${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER} -f Dockerfile.server .
                                     
-                                    echo "📤 Pushing server image..."
+                                    echo "Pushing server image..."
                                     docker push ${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER}
                                     
-                                    echo "✅ Server image built and pushed successfully"
+                                    echo "Server image built and pushed successfully"
                                 '''
                             } catch (Exception e) {
-                                error "❌ Failed to build/push server image: ${e.getMessage()}"
+                                error "Failed to build/push server image: ${e.getMessage()}"
                             }
                         }
                     }
@@ -210,15 +209,15 @@ pipeline {
                     script {
                         try {
                             sh '''
-                                echo "🔍 Verifying EKS access..."
+                                echo "Verifying EKS access..."
                                 aws sts get-caller-identity
                                 aws eks list-clusters --region ${AWS_REGION}
                                 kubectl get nodes
                                 kubectl get namespaces
-                                echo "✅ EKS access verified"
+                                echo "EKS access verified"
                             '''
                         } catch (Exception e) {
-                            error "❌ EKS access verification failed: ${e.getMessage()}"
+                            error "EKS access verification failed: ${e.getMessage()}"
                         }
                     }
                 }
@@ -232,25 +231,24 @@ pipeline {
                     script {
                         try {
                             sh '''
-                                echo "🔧 Checking if NGINX Ingress Controller exists..."
+                                echo "Checking if NGINX Ingress Controller exists..."
                             
                                 # Check if ingress-nginx namespace exists
                                 if ! kubectl get namespace ingress-nginx >/dev/null 2>&1; then
-                                    echo "📦 Installing NGINX Ingress Controller..."
+                                    echo "Installing NGINX Ingress Controller..."
                                     kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/aws/deploy.yaml --validate=false
                                 
-                                    echo "⏳ Waiting for Ingress Controller to be ready..."
+                                    echo "Waiting for Ingress Controller to be ready..."
                                     kubectl wait --namespace ingress-nginx \
                                     --for=condition=Ready pod \
                                     --selector=app.kubernetes.io/component=controller \
                                     --timeout=300s
                                 else
-                                    echo "✅ NGINX Ingress Controller already exists"
+                                    echo "NGINX Ingress Controller already exists"
                                 fi
                             '''
                         } catch (Exception e) {
-                            echo "⚠️ Warning: Ingress controller setup had issues: ${e.getMessage()}"
-                            // Don't fail the pipeline, continue with deployment
+                            echo "Warning: Ingress controller setup had issues: ${e.getMessage()}"
                         }
                     }
                 }
@@ -265,7 +263,7 @@ pipeline {
                     try {
                         withCredentials([string(credentialsId: "${MONGO_CREDENTIALS_ID}", variable: 'MONGO_URL')]) {
                             sh '''
-                                echo "🔐 Generating MongoDB secret..."
+                                echo "Generating MongoDB secret..."
                                 
                                 # Create k8s directory if it doesn't exist
                                 mkdir -p k8s
@@ -285,11 +283,11 @@ data:
   MONGO_URL: ${ENCODED_MONGO_URL}
 EOF
                                 
-                                echo "✅ MongoDB secret generated"
+                                echo "MongoDB secret generated"
                             '''
                         }
                     } catch (Exception e) {
-                        error "❌ Failed to generate MongoDB secret: ${e.getMessage()}"
+                        error "Failed to generate MongoDB secret: ${e.getMessage()}"
                     }
                 }
             }
@@ -319,10 +317,10 @@ EOF
                             kubectl apply -f k8s/client-ingress.yml
                             kubectl apply -f k8s/server-ingress.yml
                             
-                            echo "✅ Kubernetes resources deployed successfully"
+                            echo "Kubernetes resources deployed successfully"
                         '''
                     } catch (Exception e) {
-                        error "❌ Failed to deploy Kubernetes resources: ${e.getMessage()}"
+                        error "Failed to deploy Kubernetes resources: ${e.getMessage()}"
                     }
                 }
                 }
@@ -335,30 +333,29 @@ stage('Verify Deployment') {
                 script {
                     try {
                         sh '''
-                            echo "🔍 Verifying deployment..."
+                            echo "Verifying deployment..."
                             
-                            echo "📊 Pods status:"
+                            echo "Pods status:"
                             kubectl get pods -o wide
                             
-                            echo "📊 Services status:"
+                            echo "Services status:"
                             kubectl get svc
                             
-                            echo "📊 Ingress status:"
+                            echo "Ingress status:"
                             kubectl get ingress
                             
-                            echo "📊 Deployment status:"
+                            echo "Deployment status:"
                             kubectl get deployments
                             
                             # Check if pods are running
-                            echo "⏳ Waiting for pods to be running..."
-                            kubectl wait --for=condition=Ready pod -l app=client --timeout=120s || echo "⚠️ Client pods not ready yet"
-                            kubectl wait --for=condition=Ready pod -l app=server --timeout=120s || echo "⚠️ Server pods not ready yet"
+                            echo "Waiting for pods to be running..."
+                            kubectl wait --for=condition=Ready pod -l app=client --timeout=120s || echo "Client pods not ready yet"
+                            kubectl wait --for=condition=Ready pod -l app=server --timeout=120s || echo "Server pods not ready yet"
                             
-                            echo "✅ Deployment verification completed"
+                            echo "Deployment verification completed"
                         '''
                     } catch (Exception e) {
-                        echo "⚠️ Warning: Deployment verification had issues: ${e.getMessage()}"
-                        // Don't fail the pipeline, deployment might still be in progress
+                        echo "Warning: Deployment verification had issues: ${e.getMessage()}"
                     }
                 }
                                 }
@@ -370,15 +367,15 @@ stage('Verify Deployment') {
         always {
             script {
                 sh '''
-                    echo "🧹 Cleaning up Docker images..."
+                    echo "Cleaning up Docker images..."
                     docker system prune -f || true
-                    echo "✅ Cleanup completed"
+                    echo "Cleanup completed"
                 '''
             }
         }
         success {
             echo '''
-            ✅ 🎉 DEPLOYMENT SUCCESSFUL! 🎉
+            DEPLOYMENT SUCCESSFUL!
             
             Your MERN application has been successfully deployed to EKS!
             Check the ingress endpoints for your application URLs.
@@ -386,7 +383,7 @@ stage('Verify Deployment') {
         }
         failure {
             echo '''
-            ❌ 💥 DEPLOYMENT FAILED! 💥
+            DEPLOYMENT FAILED!
             
             Please check the Jenkins console output for detailed error messages.
             Common issues to check:
@@ -397,7 +394,7 @@ stage('Verify Deployment') {
             '''
         }
         unstable {
-            echo '⚠️ Deployment completed with warnings. Please review the logs.'
+            echo 'Deployment completed with warnings. Please review the logs.'
         }
     }
 }
