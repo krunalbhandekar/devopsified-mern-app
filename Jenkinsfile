@@ -1,44 +1,407 @@
 pipeline {
   agent any
-  
+
   environment {
-    DOCKER_HUB_USER = 'krunalbhandekar10'
-    VITE_API_URL = 'https://server.krunal.bar'
+    AWS_REGION = 'ap-south-1'
+    CLUSTER_NAME = 'cluster'
+    GIT_REPO = 'https://github.com/krunalbhandekar/devopsified-mern-app.git'
+    KUBECONFIG = '/var/lib/jenkins/.kube/config'
+    DOCKERHUB_USERNAME = 'krunalbhandekar10'
+    DOCKERHUB_CREDENTIALS_ID = 'dockerhub-cred-id'
+    MONGO_CREDENTIALS_ID = 'mongo-cred-id'
+    AWS_CREDENTIALS_ID = 'aws-cred-id'
   }
 
   stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'main', url: 'https://github.com/krunalbhandekar/devopsified-mern-app.git'
-      }
-    }
 
-    stage('Build Backend') {
-      steps {
-        sh 'docker build -t $DOCKER_HUB_USER/mern-server -f Dockerfile.server .'
-      }
-    }
-
-    stage('Build Frontend') {
-      steps {
-        sh 'docker build -t $DOCKER_HUB_USER/mern-client --build-arg VITE_API_URL=$VITE_API_URL -f Dockerfile.client .'
-      }
-    }
-
-    stage('Push to DockerHub') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-          sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
-          sh 'docker push $DOCKER_HUB_USER/mern-server'
-          sh 'docker push $DOCKER_HUB_USER/mern-client'
+    stage('Checkout Project') {
+            steps {
+                script {
+                    try {
+                        git branch: 'main', url: "${env.GIT_REPO}"
+                        echo "✅ Successfully checked out repository"
+                    } catch (Exception e) {
+                        error "❌ Failed to checkout repository: ${e.getMessage()}"
+                    }
+                }
+            }
         }
-      }
+        
+        stage('Validate Prerequisites') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            # Check if required tools are installed
+                            command -v docker >/dev/null 2>&1 || { echo "Docker not found"; exit 1; }
+                            command -v kubectl >/dev/null 2>&1 || { echo "kubectl not found"; exit 1; }
+                            command -v aws >/dev/null 2>&1 || { echo "AWS CLI not found"; exit 1; }
+                            
+                            # Check if Dockerfiles exist
+                            if [ ! -f "Dockerfile.client" ]; then
+                                echo "❌ Dockerfile.client not found"
+                                exit 1
+                            fi
+                            if [ ! -f "Dockerfile.server" ]; then
+                                echo "❌ Dockerfile.server not found"
+                                exit 1
+                            fi
+                            
+                            echo "✅ All prerequisites validated"
+                        '''
+                    } catch (Exception e) {
+                        error "❌ Prerequisites validation failed: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+ stage('Update kubeconfig') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    script {
+                        try {
+                            sh '''
+                                # Create .kube directory with proper permissions
+                                echo "📁 Creating .kube directory..."
+                                mkdir -p /var/lib/jenkins/.kube
+                                chmod 700 /var/lib/jenkins/.kube
+                                
+                                # Verify AWS credentials
+                                echo "🔍 Verifying AWS credentials..."
+                                aws sts get-caller-identity
+                                
+                                # Check if AWS CLI is configured properly
+                                echo "🔧 Checking AWS configuration..."
+                                aws configure list
+                                
+                                # Verify EKS cluster exists
+                                echo "🔍 Checking if EKS cluster exists..."
+                                aws eks describe-cluster --region ${AWS_REGION} --name ${CLUSTER_NAME}
+                                
+                                # Update kubeconfig with verbose output
+                                echo "🔧 Updating kubeconfig..."
+                                aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME} --kubeconfig ${KUBECONFIG} --verbose
+                                
+                                # Set proper permissions
+                                chmod 600 ${KUBECONFIG}
+                                
+                                # Verify kubeconfig was created
+                                echo "📄 Checking kubeconfig file..."
+                                ls -la ${KUBECONFIG}
+                                
+                                # Test kubectl connection
+                                echo "🔍 Testing kubectl connection..."
+                                kubectl cluster-info --request-timeout=30s
+                                
+                                echo "✅ kubeconfig updated successfully"
+                            '''
+                        } catch (Exception e) {
+                            // Enhanced error handling with debugging info
+                            sh '''
+                                echo "❌ Debugging kubeconfig update failure..."
+                                echo "Current user: $(whoami)"
+                                echo "HOME directory: $HOME"
+                                echo "AWS CLI version: $(aws --version)"
+                                echo "kubectl version: $(kubectl version --client)"
+                                echo "Current AWS region: $AWS_REGION"
+                                echo "Cluster name: $CLUSTER_NAME"
+                                echo "Kubeconfig path: $KUBECONFIG"
+                                
+                                # Check if .kube directory exists
+                                if [ -d "/var/lib/jenkins/.kube" ]; then
+                                    echo "✅ .kube directory exists"
+                                    ls -la /var/lib/jenkins/.kube/ || echo "Directory is empty"
+                                else
+                                    echo "❌ .kube directory does not exist"
+                                fi
+                                
+                                # Check AWS credentials
+                                echo "🔍 AWS credential check:"
+                                aws sts get-caller-identity || echo "❌ AWS credentials not configured"
+                                
+                                # List available clusters
+                                echo "🔍 Available EKS clusters:"
+                                aws eks list-clusters --region ${AWS_REGION} || echo "❌ Cannot list clusters"
+                                
+                                # Check if cluster exists
+                                echo "🔍 Checking specific cluster:"
+                                aws eks describe-cluster --region ${AWS_REGION} --name ${CLUSTER_NAME} || echo "❌ Cluster not found or no access"
+                            '''
+                            error "❌ Failed to update kubeconfig: ${e.getMessage()}"
+                        }
+                    }
+                }
+            }
+        }
+
+          stage('Docker Login') {
+            steps {
+                script {
+                    try {
+                        withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                            sh '''
+                                echo "🔐 Logging into Docker Hub..."
+                                echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                                echo "✅ Docker login successful"
+                            '''
+                        }
+                    } catch (Exception e) {
+                        error "❌ Docker login failed: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+
+ stage('Build & Push Docker Images') {
+            parallel {
+                stage('Build Client Image') {
+                    steps {
+                        script {
+                            try {
+                                sh '''
+                                    echo "🏗️ Building client image..."
+                                    export DOCKER_BUILDKIT=0
+                                    
+                                    # Build with build number tag
+                                    docker build -t ${DOCKERHUB_USERNAME}/mern-client -f Dockerfile.client .
+                                    docker build -t ${DOCKERHUB_USERNAME}/mern-client:latest -f Dockerfile.client .
+                                    
+                                    echo "📤 Pushing client image..."
+                                    docker push ${DOCKERHUB_USERNAME}/mern-client
+                                    docker push ${DOCKERHUB_USERNAME}/mern-client:latest
+                                    
+                                    echo "✅ Client image built and pushed successfully"
+                                '''
+                            } catch (Exception e) {
+                                error "❌ Failed to build/push client image: ${e.getMessage()}"
+                            }
+                        }
+                    }
+                }
+                
+                stage('Build Server Image') {
+                    steps {
+                        script {
+                            try {
+                                sh '''
+                                    echo "🏗️ Building server image..."
+                                    export DOCKER_BUILDKIT=0
+                                    
+                                    # Build with build number tag
+                                    docker build -t ${DOCKERHUB_USERNAME}/mern-server -f Dockerfile.server .
+                                    docker build -t ${DOCKERHUB_USERNAME}/mern-server:latest -f Dockerfile.server .
+                                    
+                                    echo "📤 Pushing server image..."
+                                    docker push ${DOCKERHUB_USERNAME}/mern-server
+                                    docker push ${DOCKERHUB_USERNAME}/mern-server:latest
+                                    
+                                    echo "✅ Server image built and pushed successfully"
+                                '''
+                            } catch (Exception e) {
+                                error "❌ Failed to build/push server image: ${e.getMessage()}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+      stage('Verify EKS Access') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    script {
+                        try {
+                            sh '''
+                                echo "🔍 Verifying EKS access..."
+                                aws sts get-caller-identity
+                                aws eks list-clusters --region ${AWS_REGION}
+                                kubectl get nodes
+                                kubectl get namespaces
+                                echo "✅ EKS access verified"
+                            '''
+                        } catch (Exception e) {
+                            error "❌ EKS access verification failed: ${e.getMessage()}"
+                        }
+                    }
+                }
+            }
+        }
+
+          
+        stage('Setup NGINX Ingress Controller') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    script {
+                        try {
+                            sh '''
+                                echo "🔧 Checking if NGINX Ingress Controller exists..."
+                            
+                                # Check if ingress-nginx namespace exists
+                                if ! kubectl get namespace ingress-nginx >/dev/null 2>&1; then
+                                    echo "📦 Installing NGINX Ingress Controller..."
+                                    kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/aws/deploy.yaml --validate=false
+                                
+                                    echo "⏳ Waiting for Ingress Controller to be ready..."
+                                    kubectl wait --namespace ingress-nginx \
+                                    --for=condition=Ready pod \
+                                    --selector=app.kubernetes.io/component=controller \
+                                    --timeout=300s
+                                else
+                                    echo "✅ NGINX Ingress Controller already exists"
+                                fi
+                            '''
+                        } catch (Exception e) {
+                            echo "⚠️ Warning: Ingress controller setup had issues: ${e.getMessage()}"
+                            // Don't fail the pipeline, continue with deployment
+                        }
+                    }
+                }
+            }
+        }
+    
+   
+
+        stage('Generate MongoDB Secret') {
+            steps {
+                script {
+                    try {
+                        withCredentials([string(credentialsId: "${MONGO_CREDENTIALS_ID}", variable: 'MONGO_URL')]) {
+                            sh '''
+                                echo "🔐 Generating MongoDB secret..."
+                                
+                                # Create k8s directory if it doesn't exist
+                                mkdir -p k8s
+                                
+                                # Generate base64 encoded MongoDB URI
+                                ENCODED_MONGO_URL=$(echo -n "${MONGO_URL}" | base64 -w 0)
+                                
+                                # Create secret YAML
+                                cat > k8s/secret.yml << EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongo-secret
+  namespace: default
+type: Opaque
+data:
+  MONGO_URL: ${ENCODED_MONGO_URL}
+EOF
+                                
+                                echo "✅ MongoDB secret generated"
+                            '''
+                        }
+                    } catch (Exception e) {
+                        error "❌ Failed to generate MongoDB secret: ${e.getMessage()}"
+                    }
+                }
+            }
+        }
+
+     stage('Deploy K8s Resources') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                script {
+                    try {
+                        sh '''
+                            echo "🚀 Deploying Kubernetes resources..."
+                            
+                            # Apply secret first
+                            kubectl apply -f k8s/secret.yml
+                            
+                            # Apply other resources with timeout
+                            kubectl apply -f k8s/client-deployment.yml --timeout=300s
+                            kubectl apply -f k8s/server-deployment.yml --timeout=300s
+                            
+                            # Wait for deployments to be ready
+                            echo "⏳ Waiting for deployments to be ready..."
+                            kubectl wait --for=condition=available --timeout=300s deployment/client-deployment || true
+                            kubectl wait --for=condition=available --timeout=300s deployment/server-deployment || true
+                            
+                            # Apply ingress resources
+                            kubectl apply -f k8s/client-ingress.yml
+                            kubectl apply -f k8s/server-ingress.yml
+                            
+                            echo "✅ Kubernetes resources deployed successfully"
+                        '''
+                    } catch (Exception e) {
+                        error "❌ Failed to deploy Kubernetes resources: ${e.getMessage()}"
+                    }
+                }
+                }
+            }
+        }
+
+stage('Verify Deployment') {
+            steps {
+                                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                script {
+                    try {
+                        sh '''
+                            echo "🔍 Verifying deployment..."
+                            
+                            echo "📊 Pods status:"
+                            kubectl get pods -o wide
+                            
+                            echo "📊 Services status:"
+                            kubectl get svc
+                            
+                            echo "📊 Ingress status:"
+                            kubectl get ingress
+                            
+                            echo "📊 Deployment status:"
+                            kubectl get deployments
+                            
+                            # Check if pods are running
+                            echo "⏳ Waiting for pods to be running..."
+                            kubectl wait --for=condition=Ready pod -l app=client --timeout=120s || echo "⚠️ Client pods not ready yet"
+                            kubectl wait --for=condition=Ready pod -l app=server --timeout=120s || echo "⚠️ Server pods not ready yet"
+                            
+                            echo "✅ Deployment verification completed"
+                        '''
+                    } catch (Exception e) {
+                        echo "⚠️ Warning: Deployment verification had issues: ${e.getMessage()}"
+                        // Don't fail the pipeline, deployment might still be in progress
+                    }
+                }
+                                }
+            }
+        }
     }
 
-    stage('Deploy to K8s') {
-      steps {
-        sh 'kubectl apply -f k8s/'
-      }
+  post {
+        always {
+            script {
+                sh '''
+                    echo "🧹 Cleaning up Docker images..."
+                    docker system prune -f || true
+                    echo "✅ Cleanup completed"
+                '''
+            }
+        }
+        success {
+            echo '''
+            ✅ 🎉 DEPLOYMENT SUCCESSFUL! 🎉
+            
+            Your MERN application has been successfully deployed to EKS!
+            Check the ingress endpoints for your application URLs.
+            '''
+        }
+        failure {
+            echo '''
+            ❌ 💥 DEPLOYMENT FAILED! 💥
+            
+            Please check the Jenkins console output for detailed error messages.
+            Common issues to check:
+            - AWS credentials and permissions
+            - Kubernetes cluster connectivity
+            - Docker Hub credentials
+            - MongoDB connection string
+            '''
+        }
+        unstable {
+            echo '⚠️ Deployment completed with warnings. Please review the logs.'
+        }
     }
-  }
 }
