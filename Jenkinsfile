@@ -301,6 +301,10 @@ EOF
                 script {
                     try {
                         sh '''
+                            echo " Updating new docker image in yml..."
+                            kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER} --record
+                            kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER} --record
+
                             echo "🚀 Deploying Kubernetes resources..."
 
                             # Delete old resources
