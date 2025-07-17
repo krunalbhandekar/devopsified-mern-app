@@ -301,26 +301,19 @@ EOF
                 script {
                     try {
                         sh '''
-                            echo " Updating new docker image in yml..."
+                            echo "Updating Docker images in deployments..."
+
+                            # Update images to new version (by BUILD_NUMBER)
                             kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER} --record
                             kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER} --record
 
-                            echo "🚀 Deploying Kubernetes resources..."
+                            # Wait for deployments to roll out
+                            echo "Waiting for deployments to roll out"
+                            kubectl rollout status deployment/client --timeout=300s
+                            kubectl rollout status deployment/server --timeout=300s
 
-                            # Delete old resources
-                            kubectl delete -f k8s
-                            
                             # Apply secret first
                             kubectl apply -f k8s/secret.yml
-                            
-                            # Apply other resources with timeout
-                            kubectl apply -f k8s/client-deployment.yml --timeout=300s
-                            kubectl apply -f k8s/server-deployment.yml --timeout=300s
-                            
-                            # Wait for deployments to be ready
-                            echo "⏳ Waiting for deployments to be ready..."
-                            kubectl wait --for=condition=available --timeout=300s deployment/client-deployment || true
-                            kubectl wait --for=condition=available --timeout=300s deployment/server-deployment || true
                             
                             # Apply ingress resources
                             kubectl apply -f k8s/client-ingress.yml
