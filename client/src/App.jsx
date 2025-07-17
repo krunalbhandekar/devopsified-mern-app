@@ -104,7 +104,7 @@ function App() {
             <Input placeholder="Enter todo" />
           </Form.Item>
           <Form.Item>
-            <Button type="primary" htmlType="submit">
+            <Button danger type="primary" htmlType="submit">
               Add Todo
             </Button>
           </Form.Item>
