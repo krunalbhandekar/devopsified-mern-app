@@ -94,7 +94,7 @@ function App() {
   return (
     <div style={{ padding: 24, margin: "0 auto" }}>
       <div>
-        <h1>Todo App</h1>
+        <h1>Devopsified Mern App</h1>
 
         <Form layout="inline" onFinish={handleAddTodo} form={form}>
           <Form.Item
