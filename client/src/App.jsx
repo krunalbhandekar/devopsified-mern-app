@@ -94,7 +94,7 @@ function App() {
   return (
     <div style={{ padding: 24, margin: "0 auto" }}>
       <div>
-        <h1>Todo</h1>
+        <h1>Todo App</h1>
 
         <Form layout="inline" onFinish={handleAddTodo} form={form}>
           <Form.Item
@@ -104,7 +104,7 @@ function App() {
             <Input placeholder="Enter todo" />
           </Form.Item>
           <Form.Item>
-            <Button danger type="primary" htmlType="submit">
+            <Button type="primary" htmlType="submit">
               Add Todo
             </Button>
           </Form.Item>
