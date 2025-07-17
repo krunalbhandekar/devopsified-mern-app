@@ -302,6 +302,9 @@ EOF
                     try {
                         sh '''
                             echo "🚀 Deploying Kubernetes resources..."
+
+                            # Delete old resources
+                            kubectl delete -f k8s
                             
                             # Apply secret first
                             kubectl apply -f k8s/secret.yml
