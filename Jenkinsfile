@@ -165,12 +165,10 @@ pipeline {
                                     export DOCKER_BUILDKIT=0
                                     
                                     # Build with build number tag
-                                    docker build -t ${DOCKERHUB_USERNAME}/mern-client -f Dockerfile.client .
-                                    docker build -t ${DOCKERHUB_USERNAME}/mern-client:latest -f Dockerfile.client .
+                                    docker build -t ${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER} -f Dockerfile.client .
                                     
                                     echo "📤 Pushing client image..."
-                                    docker push ${DOCKERHUB_USERNAME}/mern-client
-                                    docker push ${DOCKERHUB_USERNAME}/mern-client:latest
+                                    docker push ${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER}
                                     
                                     echo "✅ Client image built and pushed successfully"
                                 '''
@@ -190,12 +188,10 @@ pipeline {
                                     export DOCKER_BUILDKIT=0
                                     
                                     # Build with build number tag
-                                    docker build -t ${DOCKERHUB_USERNAME}/mern-server -f Dockerfile.server .
-                                    docker build -t ${DOCKERHUB_USERNAME}/mern-server:latest -f Dockerfile.server .
+                                    docker build -t ${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER} -f Dockerfile.server .
                                     
                                     echo "📤 Pushing server image..."
-                                    docker push ${DOCKERHUB_USERNAME}/mern-server
-                                    docker push ${DOCKERHUB_USERNAME}/mern-server:latest
+                                    docker push ${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER}
                                     
                                     echo "✅ Server image built and pushed successfully"
                                 '''

@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: krunalbhandekar10/mern-server:latest
+          image: krunalbhandekar10/mern-server:${BUILD_NUMBER}
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

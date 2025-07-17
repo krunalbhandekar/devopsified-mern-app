@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: client
-          image: krunalbhandekar10/mern-client:latest
+          image: krunalbhandekar10/mern-client:${BUILD_NUMBER}
           imagePullPolicy: Always
           ports:
             - containerPort: 80
