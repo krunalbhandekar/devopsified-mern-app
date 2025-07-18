@@ -299,32 +299,28 @@ EOF
                 script {
                     try {
                         sh '''
-                            echo "Updating Docker images in deployments..."
-
-                            # Update images to new version (by BUILD_NUMBER)
-                            kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER}
-                            kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER}
-
-                            if kubectl get deployment client; then
-                                kubectl rollout status deployment/client --timeout=300s
-                            else 
-                                echo "Deployment client not found. Applying YML instead."
-                                kubectl apply -f k8s/client-deployment.yml
-                            fi
-
-                            if kubectl get deployment server; then
-                                kubectl rollout status deployment/server --timeout=300s
-                            else 
-                                echo "Deployment server not found. Applying YML instead."
-                                kubectl apply -f k8s/server-deployment.yml
-                            fi
-
-                            # Apply secret first
+                            echo "Applying secret and ingress..."
                             kubectl apply -f k8s/secret.yml
-                            
-                            # Apply ingress resources
                             kubectl apply -f k8s/client-ingress.yml
                             kubectl apply -f k8s/server-ingress.yml
+
+                            echo "Deploying client...."
+                              if kubectl get deployment client; then
+                                kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER}
+                                kubectl rollout status deployment/client --timeout=300s
+                            else 
+                                echo "Creating client deployment with new image tag"
+                                envsubst < k8s/client-deployment.tpl.yml | kubectl apply -f -
+                            fi
+
+                              echo "Deploying server...."
+                              if kubectl get deployment server; then
+                                kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER}
+                                kubectl rollout status deployment/server --timeout=300s
+                            else 
+                                echo "Creating server deployment with new image tag"
+                                envsubst < k8s/server-deployment.tpl.yml | kubectl apply -f -
+                            fi
                             
                             echo "Kubernetes resources deployed successfully"
                         '''
