@@ -302,13 +302,22 @@ EOF
                             echo "Updating Docker images in deployments..."
 
                             # Update images to new version (by BUILD_NUMBER)
-                            kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER} --record
-                            kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER} --record
+                            kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER}
+                            kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER}
 
-                            # Wait for deployments to roll out
-                            echo "Waiting for deployments to roll out"
-                            kubectl rollout status deployment/client --timeout=300s
-                            kubectl rollout status deployment/server --timeout=300s
+                            if kubectl get deployment client; then
+                                kubectl rollout status deployment/client --timeout=300s
+                            else 
+                                echo "Deployment client not found. Applying YML instead."
+                                kubectl apply -f k8s/client-deployment.yml
+                            fi
+
+                            if kubectl get deployment server; then
+                                kubectl rollout status deployment/server --timeout=300s
+                            else 
+                                echo "Deployment server not found. Applying YML instead."
+                                kubectl apply -f k8s/server-deployment.yml
+                            fi
 
                             # Apply secret first
                             kubectl apply -f k8s/secret.yml
