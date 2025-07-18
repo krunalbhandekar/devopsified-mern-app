@@ -44,6 +44,34 @@ devopsified-mern-app/
 
 ---
 
+## ⚙️ Before You Begin: Update Your Credentials
+
+This project is configured with **personal credentials/usernames**. If you're trying this on your own setup, make sure to update the following values in the repository:
+
+### 🔄 Required Updates
+
+**🔹 DockerHub Username**
+
+Update in:
+
+- **`Jenkinsfile`** → **`environment`** block
+- Kubernetes deployment files:
+  - **`k8s/client-deployment.tpl.yml`**
+  - **`k8s/client-deployment.yml`**
+  - **`k8s/server-deployment.tpl.yml`**
+  - **`k8s/server-deployment.yml`**
+
+**🔹 Jenkinsfile (`environment` block)**
+
+Update the following values:
+
+- **`AWS_REGION`** — e.g., **`ap-south-1`**
+- **`CLUSTER_NAME`** — your EKS cluster name
+- **`GIT_REPO`** — your forked GitHub repo URL
+- **`DOCKERHUB_USERNAME`** — your DockerHub username
+
+---
+
 ## ☁️ Step 1: Set Up EKS Cluster & Node Group (`t3.medium` or higher)
 
 - Follow the video tutorial to proceed with cluster and node group creation.
