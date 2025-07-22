@@ -417,7 +417,7 @@ stage('Verify Deployment') {
                 <p>Frontend: <a href="http://${env.ALB_URL}">http://${env.ALB_URL}</a></p>
                 <p>Backend: <a href="http://${env.ALB_URL}/api">http://${env.ALB_URL}/api</a></p>
                 <p>Regards,<br/>Jenkins CI/CD</p>""",
-                mimeType:'text/html'
+                mimeType:'text/html',
                 to:"${env.YOUR_EMAIL}"
             )
         }
