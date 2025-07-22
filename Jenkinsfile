@@ -256,6 +256,36 @@ pipeline {
                 }
             }
         }
+
+        stage('Ensure NGINX LoadBalancer Exists') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    script {
+                        def lbHostname = sh(
+                            script: "kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                            returnStdout: true
+                        ).trim()
+
+                        if (!lbHostname || lbHostname == "null") {
+                            echo "⚠️ ALB for NGINX Ingress Controller is missing. Recreating Service..."
+                            sh '''
+                                kubectl delete svc ingress-nginx-controller -n ingress-nginx || true
+                                kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.4/deploy/static/provider/aws/deploy.yaml --validate=false
+
+                                echo "⏳ Waiting for LoadBalancer to get a hostname..."
+                                kubectl wait --namespace ingress-nginx \
+                                --for=condition=Ready pod \
+                                --selector=app.kubernetes.io/component=controller \
+                                --timeout=300s
+                            '''
+                        } else {
+                            echo "✅ ALB already exists: ${lbHostname}"
+                            env.ALB_URL = lbHostname
+                        }
+                    }
+                }
+            }
+        }
     
    
 
