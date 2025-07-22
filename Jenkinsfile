@@ -10,6 +10,8 @@ pipeline {
     DOCKERHUB_CREDENTIALS_ID = 'dockerhub-cred-id'
     MONGO_CREDENTIALS_ID = 'mongo-cred-id'
     AWS_CREDENTIALS_ID = 'aws-cred-id'
+    YOUR_EMAIL = 'krunalbhandekar10@gmail.com'
+    NAMESPACE = "default"
   }
 
   stages {
@@ -248,7 +250,7 @@ pipeline {
                                 fi
                             '''
                         } catch (Exception e) {
-                            echo "Warning: Ingress controller setup had issues: ${e.getMessage()}"
+                            error "Warning: Ingress controller setup had issues: ${e.getMessage()}"
                         }
                     }
                 }
@@ -360,8 +362,35 @@ stage('Verify Deployment') {
                             echo "Deployment verification completed"
                         '''
                     } catch (Exception e) {
-                        echo "Warning: Deployment verification had issues: ${e.getMessage()}"
+                        error "Warning: Deployment verification had issues: ${e.getMessage()}"
                     }
+                }
+                                }
+            }
+        }
+
+        stage('Fetch ALB URL') {
+            steps {
+                                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: "${AWS_CREDENTIALS_ID}", secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                script {
+                    def clientAlb = sh (
+                    script: "kubectl get ingress client-ingress -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                    returnStdout: true
+                  ).trim()
+
+                  def serverAlb = sh (
+                    script: "kubectl get ingress server-ingress -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
+                    returnStdout: true
+                  ).trim()
+
+                  echo "Client ALB: ${clientAlb}"
+                  echo "Server ALB: ${serverAlb}"
+
+                  if (clientAlb != serverAlb) {
+                    error "ALB mismatch between client and server ingresses!"
+                  }
+
+                  env.ALB_URL = clientAlb
                 }
                                 }
             }
@@ -379,13 +408,20 @@ stage('Verify Deployment') {
             }
         }
         success {
-            echo '''
-            DEPLOYMENT SUCCESSFUL!
-            
-            Your MERN application has been successfully deployed to EKS!
-            Check the ingress endpoints for your application URLs.
-            '''
+            script {
+            emailext(
+                subject: "Your MERN application has been successfully deployed to EKS!",
+                body: """<p>Hello Team,</p>
+                <p>The <b>DevOpsified MERN App</b> has been successfully deployed to EKS.</p>
+                <p>Access it here:</p>
+                <p>Frontend: <a href="http://${env.ALB_URL}">http://${env.ALB_URL}</a></p>
+                <p>Backend: <a href="http://${env.ALB_URL}/api">http://${env.ALB_URL}/api</a></p>
+                <p>Regards,<br/>Jenkins CI/CD</p>""",
+                mimeType:'text/html'
+                to:"${env.YOUR_EMAIL}"
+            )
         }
+    }
         failure {
             echo '''
             DEPLOYMENT FAILED!
