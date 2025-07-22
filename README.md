@@ -69,6 +69,7 @@ Update the following values:
 - **`CLUSTER_NAME`** — your EKS cluster name
 - **`GIT_REPO`** — your forked GitHub repo URL
 - **`DOCKERHUB_USERNAME`** — your DockerHub username
+- **`YOUR_EMAIL`** — your email address (gmail)
 
 ---
 
@@ -317,7 +318,23 @@ sudo systemctl restart jenkins
 
 ---
 
-## 🔐 Step 3: Jenkins Credentials Setup
+## Step 3: Install following Plugins
+
+Navigate: **`Jenkins Dashboard`** → **`Manage Jenkins`** → **`Plugins`** → **`Available Plugins`**
+
+- Git
+- GitHub
+- GitHub Integration
+- Pipeline
+- Docker Pipeline
+- SSH Agent
+- Pipeline stage view
+- Aws credentials
+- Email Extension
+
+---
+
+## 🔐 Step 4: Jenkins Credentials Setup
 
 ### Dockerhub Credential
 
@@ -359,21 +376,6 @@ Click on Create
 
 ---
 
-## Step 4: Install following Plugins
-
-Navigate: **`Jenkins Dashboard`** → **`Manage Jenkins`** → **`Plugins`** → **`Available Plugins`**
-
-- Git
-- GitHub
-- GitHub Integration
-- Pipeline
-- Docker Pipeline
-- SSH Agent
-- Pipeline stage view
-- Aws credentials
-
----
-
 ## Step 5: Github Webhook Setup
 
 ### On GitHub Repository:
@@ -407,7 +409,34 @@ Navigate: **`Jenkins Dashboard`** → (**`New Item`** or **`Create a job`**) →
 
 ---
 
-## ✅ Step 7: Access the Application
+## Step 7: Configure SMTP in Jenkins
+
+Navigate: **`Jenkins Dashboard`** → **`Manage Jenkins`** → **`System`**
+
+- Scroll to **`Extended E-mail Notification`**
+- SMTP Server: **`smtp.gmail.com`**
+- SMTP Port: **`587`**
+- Click the **`Advanced`** button under **`SMTP Server/SMTP Port`**
+- Click **`+ Add`** → **`Jenkins`**
+  - Domain: Global Credentials (unrestricted)
+  - Kind: Username and password
+  - Scope: Global (Jenkins, nodes, items, all child items, etc)
+  - Username: **`<your-email-address(gmail)>`**
+  - Password: **`Enter Gmail App Password`**  
+    📌 App Password can be generated at: https://myaccount.google.com/apppasswords
+  - ID: **`email-app-password`**
+  - Description: **`email-app-password`**
+  - Click **Add**
+- Select newly created Credential
+- enable **`Use TLS`**
+- Default Content Type: **`HTML (text/html)`**
+- Default Recipients: **`<your-email-address(gmail)>`**
+
+**Apply → Save**
+
+---
+
+## ✅ Step 8: Access the Application
 
 After a successful Jenkins build:
 
@@ -420,9 +449,13 @@ After a successful Jenkins build:
 - **Frontend: `http://<alb-dns-url>`**
 - **Backend API: `http://<alb-dns-url>/api`**
 
+### 📩 Heads Up: Email Notification Enabled
+
+After a successful Jenkins build, you’ll **automatically receive an email** with the **ALB URL and deployment details**.
+
 ---
 
-## 🔁 Step 8: Verify CI/CD with Auto Deployment
+## 🔁 Step 9: Verify CI/CD with Auto Deployment
 
 To test auto-deployment:
 
