@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import todoRouter from "./routes/todo.js";
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -18,6 +19,23 @@ const routerInit = (app) => {
       },
     });
   });
+
+  // Liveness probe
+  app.get("/health", async (_, res) => {
+    res.status(200).send({ status: "healthy" });
+  });
+
+  // Readiness probe (checks MongoDB)
+  app.get("/ready", async (_, res) => {
+    const state = mongoose.connection.readyState;
+    if (state === 1) {
+      // 1 = connected
+      res.status(200).send({ status: "ready" });
+    } else {
+      res.status(500).send({ status: "not ready" });
+    }
+  });
+
   app.use("/todo", todoRouter);
 };
 
