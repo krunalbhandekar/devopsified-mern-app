@@ -10,6 +10,25 @@ This project showcase a **CI/CD pipeline** for deploying a **MERN (MongoDB, Expr
 
 ---
 
+## ♻️ Deployment Strategy: Rollback on Failure
+
+- This project implements a **rollback deployment strategy** using Kubernetes' native deployment features. During each Jenkins pipeline run, the system performs a **rolling update** of the application containers (**`client`** and **`server`**), and immediately **verifies the rollout status**.
+- If the **rollout fails** (due to issues like a bad image, environment misconfiguration, or health check failure), Jenkins will **automatically trigger a rollback** to the previously stable version using:
+
+```bash
+kubectl rollout undo deployment/<deployment-name>
+```
+
+### ✅ Why Rollback is Used
+
+- **Ensures zero downtime** for users by keeping a healthy version running.
+- **Automatically recovers** from faulty deployments without manual intervention.
+- Provides a **safe and reliable CI/CD pipeline** for production-grade applications.
+
+This strategy improves confidence in continuous delivery and helps maintain application availability at all times.
+
+---
+
 ## 🛠️ Tech Stack
 
 - React (Frontend)
