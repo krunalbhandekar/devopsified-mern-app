@@ -307,7 +307,11 @@ EOF
                             echo "Deploying client...."
                               if kubectl get deployment client; then
                                 kubectl set image deployment/client client=${DOCKERHUB_USERNAME}/mern-client:${BUILD_NUMBER}
-                                kubectl rollout status deployment/client --timeout=300s
+                                if ! kubectl rollout status deployment/client --timeout=300s; then 
+                                    echo "Client rollout failed. Rolling back..."
+                                    kubectl rollout undo deployment/client
+                                    exit 1
+                                fi
                             else 
                                 echo "Creating client deployment with new image tag"
                                 envsubst < k8s/client-deployment.tpl.yml | kubectl apply -f -
@@ -316,7 +320,11 @@ EOF
                               echo "Deploying server...."
                               if kubectl get deployment server; then
                                 kubectl set image deployment/server server=${DOCKERHUB_USERNAME}/mern-server:${BUILD_NUMBER}
-                                kubectl rollout status deployment/server --timeout=300s
+                                if ! kubectl rollout status deployment/server --timeout=300s; then
+                                    echo "Server rollout failed. Rolling back..."
+                                    kubectl rollout undo deployment/server
+                                    exit 1
+                                fi
                             else 
                                 echo "Creating server deployment with new image tag"
                                 envsubst < k8s/server-deployment.tpl.yml | kubectl apply -f -
