@@ -29,6 +29,113 @@ This strategy improves confidence in continuous delivery and helps maintain appl
 
 ---
 
+## 🩺 Health Checks and Readiness Probes
+
+To ensure **reliable and production-grade deployment**, this project includes **readiness checks** for both the backend and frontend services.
+
+### ✅ Why It Matters
+
+- Prevents **premature traffic routing** to pods that aren't fully ready
+- Avoids errors caused by uninitialized database connections
+- Improves **application stability**, especially during **auto-scaling**, **rolling updates**, or **initial startup**
+- Helps Kubernetes **gracefully manage traffic and pod lifecycle**
+
+### 🧪 What Was Implemented
+
+**🔹 Backend (Server)**
+
+- Introduced a new **`/ready`** endpoint that checks the **MongoDB connection status**.
+- Returns:
+  - **`HTTP 200`** when the database is connected ✅
+  - **`HTTP 500`** when the database is not connected ❌
+- Configured **`readinessProbe`** in Kubernetes to call this endpoint:
+
+```bash
+  // Readiness probe (checks MongoDB)
+  app.get("/ready", async (_, res) => {
+    const state = mongoose.connection.readyState;
+    if (state === 1) {
+      // 1 = connected
+      res.status(200).send({ status: "ready" });
+    } else {
+      res.status(500).send({ status: "not ready" });
+    }
+  });
+```
+
+```yaml
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+This ensures the pod starts receiving traffic **only after the backend and MongoDB are fully ready**.
+
+- Added a separate **`/health`** route that simply returns **`HTTP 200`** response for **external uptime monitors, load balancer health checks**.
+  - Used by **livenessProbe** to check whether the app is running and responsive.
+  - If this check fails multiple times (**`failureThreshold: 3`**), Kubernetes **restarts the pod** assuming it's unhealthy.
+
+```bash
+  // Liveness probe
+  app.get("/health", async (_, res) => {
+    res.status(200).send({ status: "healthy" });
+  });
+```
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+```
+
+This helps **recover crashed or hung containers automatically**, improving resiliency in production.
+
+**🔹 Frontend (Client)**
+
+- Added a static route **`/health.txt`** to serve a plain health check response.
+- Useful for monitoring tools or ingress health checks.
+- Example: **`http://<client-url>/health.txt`**
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health.txt
+    port: 80
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+readinessProbe:
+  httpGet:
+    path: /health.txt
+    port: 80
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+### 🔍 How It Works
+
+- Kubernetes periodically hits the defined **readiness endpoints**.
+- If the probe fails **`failureThreshold`** times, Kubernetes:
+  - Does **not** route traffic to the pod (for readinessProbe)
+  - **Restarts** the pod (for livenessProbe, if used)
+- This mechanism ensures zero downtime and better fault tolerance.
+
+### 🧠 Summary
+
+| Probe Type       | Route     | Purpose                            | Failure Action                |
+| ---------------- | --------- | ---------------------------------- | ----------------------------- |
+| `readinessProbe` | `/ready`  | Is the app + DB fully initialized? | **Pod won't receive traffic** |
+| `livenessProbe`  | `/health` | Is the app process still running?  | **Pod will be restarted**     |
+
+---
+
 ## 🛠️ Tech Stack
 
 - React (Frontend)
